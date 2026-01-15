@@ -1,73 +1,53 @@
-# Personal LLM with RAG
+# Personal Memory Assistant
 
-A personalized memory assistant that uses Retrieval-Augmented Generation (RAG) on your WhatsApp chat history. Keeps your data local while intelligently retrieving relevant personal context to answer your questions.
+A local AI that learns from your WhatsApp chat history to remember everything about your relationships, decisions, and past conversations. Ask it anything about your personal life - it retrieves relevant memories and answers intelligently.
 
-## 🎯 Use Cases
+**100% private. Runs locally. Your data never leaves your machine.**
 
-- **Memory augmentation**: "What did I decide about that apartment?" - instantly retrieve relevant past conversations
-- **Person insights**: `!about Anna` - summarize everything you've discussed with someone
-- **Decision support**: Analyze your past concerns and opinions to help with current decisions
-- **Chat history search**: `!search [topic]` - find specific conversations from months ago
-- **Personal knowledge base**: Extract decisions, plans, and information you've shared
+## What It Does
 
-## 🔒 Privacy & Data Security
-
-**Your data never leaves your machine:**
-- ✅ Chat file stays local
-- ✅ Vector embeddings generated locally
-- ✅ All processing happens on your device
-- ✅ No cloud storage or external API calls (unless you choose hosted model option)
-- ✅ You own all your data - delete anytime
-
-Unlike ChatGPT/Claude APIs, this system:
-- Processes sensitive personal messages locally
-- Doesn't send raw chat history anywhere
-- Works completely offline (except Ollama model download)
+- **Memory retrieval**: "What did I decide about that apartment?" → Finds relevant past conversations
+- **Person insights**: `!about Anna` → Summarizes everything you've discussed with someone
+- **Chat search**: `!search [topic]` → Find specific conversations from months ago
+- **Decision support**: Analyzes your past concerns to help with current decisions
 
 ## Prerequisites
 
-- [Ollama](https://ollama.ai) installed (for local model) OR Claude/OpenAI API key (for hosted)
+- [Ollama](https://ollama.ai) installed and running
 - Python 3.10+
 - Poetry for dependency management
+- Your WhatsApp chat export as `_chat.txt` in the project folder
 
 ## Setup
 
-1. **Clone Poetry environment:**
+1. **Export your WhatsApp chat:**
+   - Open WhatsApp → Select chat → More options → Export chat
+   - Save as `_chat.txt` in this project folder
+
+2. **Install dependencies:**
    ```bash
    poetry install
-   ```
-
-2. **Activate virtual environment:**
-   ```bash
    poetry shell
    ```
 
-3. **Configure environment:**
+3. **Start Ollama** (in another terminal):
    ```bash
-   cp .env.example .env
-   # Edit .env with your configuration (see options below)
+   ollama serve
    ```
 
-4. **For Local Model (Ollama):**
+4. **Pull a model** (in another terminal):
    ```bash
-   # Terminal 1: Start Ollama
-   ollama serve
-   
-   # Terminal 2: Pull model
    ollama pull mistral
-   
-   # Terminal 3: Run the app
+   ```
+
+5. **Run the app:**
+   ```bash
    python main.py
    ```
 
-5. **For Hosted Model (Claude/OpenAI):**
-   - Get API key from [Anthropic](https://console.anthropic.com) or [OpenAI](https://platform.openai.com)
-   - Add to `.env`: `ANTHROPIC_API_KEY=sk-ant-...` or `OPENAI_API_KEY=sk-...`
-   - See "Using Hosted Models" section below
+## How to Use
 
-## Usage
-
-### Interactive Commands
+### Commands
 
 ```
 !recall [topic]     - Find all messages about a topic
@@ -78,92 +58,53 @@ Unlike ChatGPT/Claude APIs, this system:
 
 ### Regular Chat
 
-Just ask questions - the system intelligently uses relevant context only when needed.
+Just ask questions naturally - the system finds relevant context from your chat history when helpful.
 
-## Architecture
+## Using a Powerful Model (Optional)
 
-```
-Your WhatsApp chat (_chat.txt)
-    ↓
-Local parsing & chunking
-    ↓
-Vector embeddings (local)
-    ↓
-ChromaDB (local vector storage)
-    ↓
-Smart context retrieval
-    ↓
-LLM (local OR cloud)
-    ↓
-Response with sources
+By default, this uses Mistral 7B locally. For better results, use Claude or GPT-4 by swapping the LLM in `src/chat.py`:
+
+**Example with Claude:**
+```python
+from langchain_anthropic import ChatAnthropic
+
+self.llm = ChatAnthropic(
+    model="claude-3-sonnet-20240229",
+    api_key=os.getenv("ANTHROPIC_API_KEY")
+)
 ```
 
-## 🌐 Using Hosted Models
+Then add your API key to `.env` and install: `poetry add langchain-anthropic`
 
-### Option 1: Claude (Recommended)
+## How It Works
 
-**Why Claude?** Best at personality analysis and instruction following.
-
-1. Get API key from [console.anthropic.com](https://console.anthropic.com)
-2. Update `.env`:
-   ```
-   ANTHROPIC_API_KEY=sk-ant-your-key-here
-   ```
-3. Edit `src/chat.py` - replace the Ollama initialization:
-   ```python
-   from langchain_anthropic import ChatAnthropic
-   
-   # In __init__:
-   self.llm = ChatAnthropic(
-       model="claude-3-sonnet-20240229",
-       api_key=os.getenv("ANTHROPIC_API_KEY")
-   )
-   ```
-4. Install: `poetry add langchain-anthropic`
-
-**Cost:** ~$0.01 per query (~$3/month for daily use)
-
-### Option 2: OpenAI (GPT-4)
-
-1. Get API key from [platform.openai.com](https://platform.openai.com)
-2. Update `.env`:
-   ```
-   OPENAI_API_KEY=sk-your-key-here
-   ```
-3. Edit `src/chat.py`:
-   ```python
-   from langchain_openai import ChatOpenAI
-   
-   # In __init__:
-   self.llm = ChatOpenAI(
-       model="gpt-4",
-       api_key=os.getenv("OPENAI_API_KEY")
-   )
-   ```
-4. Install: `poetry add langchain-openai`
-
-**Cost:** ~$0.03-0.05 per query (~$10/month for daily use)
-
-**Important:** RAG stays local - only short context chunks are sent to API, never your raw chat file.
+1. Parses your WhatsApp chat export
+2. Creates vector embeddings (locally)
+3. Stores in local ChromaDB database
+4. When you ask a question, retrieves relevant messages
+5. LLM answers with context from your history
 
 ## Project Structure
 
-- `_chat.txt` - Your WhatsApp chat history (used for RAG)
-- `chroma_db/` - Local vector database (created after first run)
-- `.env` - Configuration (your API keys if using hosted model)
-- `src/`:
-  - `data_loader.py` - Parse WhatsApp exports
-  - `rag_pipeline.py` - Vector embeddings & retrieval
-  - `chat.py` - Main chat interface
+- `_chat.txt` - Your WhatsApp chat (excluded from git)
+- `chroma_db/` - Local vector database
+- `src/data_loader.py` - Parse WhatsApp format
+- `src/rag_pipeline.py` - Vector search & retrieval
+- `src/chat.py` - Chat interface
 
-## Technologies
+## Privacy
 
-- **Ollama** - Local LLM inference
-- **LangChain** - LLM framework & RAG
-- **ChromaDB** - Vector database (local)
-- **Sentence Transformers** - Embedding generation (local)
-- **Anthropic Claude** OR **OpenAI** - Optional hosted models
-- **Python-dotenv** - Configuration management
+Your chat data:
+- ✅ Never leaves your machine
+- ✅ Stored locally only
+- ✅ Works completely offline (except model downloads)
+- ✅ You own everything
+
+## Support This Project
+
+If you find this useful:
+- 🎵 Into Berlin style techno? [Check out my record](https://decadencerecordings.bandcamp.com/album/d-r-01)
+- ☕ Otherwise, [buy me a coffee](https://buymeacoffee.com/shinobe)
 
 ## License
 
